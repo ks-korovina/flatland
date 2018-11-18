@@ -1,2 +1,2 @@
 # Flatland
-DNN project for convex optimisation
+DNN project for convex optimisation.
