@@ -3,6 +3,9 @@ Pytorch Modules for MNIST and CIFAR10
 
 Code adapted from torchvision
 
+TODOs;
+* other models?
+
 """
 
 import torch.nn as nn
