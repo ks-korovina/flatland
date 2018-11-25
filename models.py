@@ -57,3 +57,6 @@ class VGG(nn.Module):
         checkpoint = torch.load("./checkpoints/{}.pth".format(check_name), map_location='cpu')
         self.to(DEVICE)
         self.load_state_dict(checkpoint)
+
+    def load_params(self, params):
+        self.load_state_dict(params)

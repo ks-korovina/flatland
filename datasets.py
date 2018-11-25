@@ -10,9 +10,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10
 
 
-# class MNIST(Dataset):
-#   pass
-
+# New Dataset classes can be created as:
 # class CIFAR10(Dataset):
 #   def __init__(self):
 #       pass
