@@ -82,7 +82,7 @@ def main():
         num_batches = len(train_loader)
 
         for (xs, ys) in tqdm(train_loader):
-            xs, ys = xs.cuda(), ys.cuda()
+            xs, ys = xs.to(DEVICE), ys.to(DEVICE)
             optimizer.zero_grad()
             logits = model(xs)
 
