@@ -53,8 +53,10 @@ def run_training(exp_name="nov24", batch_size=32, num_epochs=10,
     val_loader   = get_data_loader("cifar10", "val", batch_size)
 
     history = init_history()
-    update_history({"train_loss": 1e10, "weights": deepcopy(list(model.parameters()))},
+    update_history({"train_loss": 1e10, "weights": deepcopy(model.state_dict())},
                     history, history_name)
+
+    # model.load_state_dict(model.state_dict())
     exit(0)
 
     # model.load(check_name)
