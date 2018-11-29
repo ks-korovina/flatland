@@ -30,19 +30,27 @@ print("Using device:", DEVICE)
 
 # checkpoint can be loaded into an initialized model with .load(name)
 
-def run_training(exp_name="nov24", batch_size=32, num_epochs=10,
-                 val_period=5, save_hist_period=5):
+def run_training(model_name="VGG16", dataset_name="cifar10",
+                 batch_size=32, lr=1e-3, n_epochs=10, val_period=5, save_hist_period=5):
     """
     For now only one model (vgg-16).
-    """
 
+    Params:
+    :model_name:
+    :dataset_name:
+    :batch_size:
+    :lr:
+    :n_epochs: number of training epochs
+    :val_period:
+    :save_hist_period:
+
+    """
     # name of current checkpoint/run
-    check_name = exp_name
-    history_name = check_name+"_history"
+    check_name = record_experiment(model_name, dataset_name, batch_size, lr)
 
     # setup model, optimizer and logging
     model = VGG("VGG16").to(DEVICE)
-    optimizer = Adam(params=model.parameters())
+    optimizer = SGD(params=model.parameters(), lr=lr)
     scheduler = ReduceLROnPlateau(optimizer, patience=3,
                                   threshold=0.1, min_lr=1e-5)
 
@@ -53,16 +61,17 @@ def run_training(exp_name="nov24", batch_size=32, num_epochs=10,
     val_loader   = get_data_loader("cifar10", "val", batch_size)
 
     history = init_history()
-    update_history({"train_loss": 1e10, "weights": deepcopy(model.state_dict())},
-                    history, history_name)
+    update_history({"train_loss": 1e1,
+                    "weights": deepcopy(model.state_dict())},
+                    history, check_name)
 
-    # model.load_state_dict(model.state_dict())
+    model.load_state_dict(model.state_dict())
     exit(0)
 
     # model.load(check_name)
 
     count = 0
-    for epoch in range(num_epochs):
+    for epoch in range(n_epochs):
         model.train()
         print("Starting training epoch {}".format(epoch+1))
         
@@ -76,7 +85,7 @@ def run_training(exp_name="nov24", batch_size=32, num_epochs=10,
 
             loss = cross_ent(logits, ys)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 5.)
             optimizer.step()
 
             running_loss += loss.item()
@@ -93,7 +102,7 @@ def run_training(exp_name="nov24", batch_size=32, num_epochs=10,
         if epoch % save_hist_period == 0:
             update_history({"train_loss": avg_loss,
                             "weights": deepcopy(model.parameters())},
-                             history, history_name)
+                             history, check_name)
 
         if epoch % val_period == 0:
             model.eval()
