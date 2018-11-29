@@ -1,5 +1,7 @@
 """
-Helper functions for training and running experiments
+Helper functions for training and running experiments.
+
+@author: kkorovin@cs.cmu.edu
 
 TODO:
 * add validation loss tracking
@@ -13,6 +15,7 @@ from time import time
 import numpy as np
 import pickle as pkl
 import torch.nn as nn
+from constants import DEVICE
 
 
 ############### Training History #################
@@ -48,6 +51,7 @@ def load_history(check_name):
     with open("./checkpoints/"+ check_name + ".pkl", "rb") as f:
         history = pkl.load(f)
     return history
+
 
 ############### Operations on points #################
 
