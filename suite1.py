@@ -15,11 +15,11 @@ from constants import DEVICE
 from datasets import get_data_loader
 from models import get_model
 from utils import *
+from flatness import compute_c_epsilon_flatness
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.tri as mtri
-
 
 
 def visualize_checkpoint_simplex(exp_names, model_name, dataset_name):
@@ -51,29 +51,7 @@ def visualize_checkpoint_simplex(exp_names, model_name, dataset_name):
     tri = mtri.Triangulation(x_simplex, y_simplex)
     ax.plot_trisurf(x_simplex, y_simplex, losses, triangles=tri.triangles, 
                     cmap=plt.cm.Spectral, label="loss surface interpolation")
-    plt.savefig("trajectories")
-
-
-def compute_c_epsilon_sharpness(exp_name, eps=1e-3):
-    """
-    Input: experiment name and parameter epsilon
-    Returns: float sharpness
-    """
-    last_trajectory_point = load_history(exp_name)['trajectory'][-1]
-
-
-def compute_c_epsilon_flatness(exp_name, eps=1e-3, n_trials=100):
-    """
-    Input: experiment name and parameter epsilon
-    Returns: float flatness
-    """
-    network_params = load_history(exp_name)['trajectory'][-1]
-    for _ in range(n_trials):
-        # sample a random direction in unit ball (how? every param group in unit ball?)
-        # perturb network_params in this random direction
-        # find max_eps_group for each group along perturbation (iterate with some step until increase is large)
-        pass
-    # take max of max_eps_group's?
+    plt.savefig("Surface of exps " + str(exp_names))
 
 
 if __name__ == "__main__":
@@ -83,6 +61,6 @@ if __name__ == "__main__":
 
     # 1-epoch mnist on lenet
     exp_names = ["1543467966", "1543468095", "1543468159"]
-    visualize_checkpoint_simplex(exp_names, "lenet", "mnist")
-
-
+    # visualize_checkpoint_simplex(exp_names, "lenet", "mnist")
+    for exp_name in exp_names:
+        compute_c_epsilon_flatness(exp_name, "lenet", "mnist", n_trials=10)

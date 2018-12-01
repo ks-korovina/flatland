@@ -53,7 +53,7 @@ def load_history(check_name):
     return history
 
 
-############### Operations on points #################
+############### Operations on net parameters (weights) #################
 
 def average_with_weights(thetas, weights):
     # check that number of params match
@@ -63,9 +63,29 @@ def average_with_weights(thetas, weights):
     res = {}
     layer_names = thetas[0].keys()
     for layer in layer_names:
-        weighted_sum = torch.stack([weights[i] * thetas[i][layer] for i in range(n_models)], dim=0).sum(0)
+        weighted_sum = torch.stack([weights[i] * thetas[i][layer]
+                                    for i in range(n_models)], dim=0
+                                   ).sum(0)
         res[layer] = weighted_sum
     return res
+
+
+def add_weights(dw1, dw2, step=1.):
+    res = {}
+    for layer in dw1.keys():
+        res[layer] = dw1[layer] + float(step) * dw2[layer]
+    return res
+
+
+def random_like(weight_dict):
+    delta_weights = {}
+    delta_norm = 0.
+    for layer in weight_dict.keys():
+        delta_layer = torch.randn(weight_dict[layer].size())
+        delta_norm += torch.sum(delta_layer ** 2).item()
+        delta_weights[layer] = delta_layer
+    delta_norm = np.sqrt(delta_norm)
+    return {k: v/delta_norm for k, v in delta_weights.items()}
 
 
 def generate_simplex_combs(thetas, n_points=100):
@@ -81,7 +101,8 @@ def generate_simplex_combs(thetas, n_points=100):
         weights /= weights.sum()
         yield average_with_weights(thetas, weights), weights
 
-# TODO: add other utilities here
+
+############### Loss computations #################
 
 def compute_loss(model, xs, ys):
     """ Use a loaded model """
@@ -98,15 +119,18 @@ def compute_approx_train_loss(model, data_loader, break_after=1):
     running_loss = 0.
     n_batches = 0
     for (xs, ys) in data_loader:
-      xs, ys = xs.to(DEVICE), ys.to(DEVICE)
-      running_loss += compute_loss(model, xs, ys)
-      n_batches += 1
+        xs, ys = xs.to(DEVICE), ys.to(DEVICE)
+        running_loss += compute_loss(model, xs, ys)
+        n_batches += 1
 
-      break
+        if n_batches >= break_after:
+            break
 
     loss = running_loss / n_batches
     return loss
 
+
+# TODO: add other utilities here
 
 ############### Tests for operations #################
 
@@ -127,5 +151,4 @@ def run_tests():
 
 if __name__=="__main__":
     run_tests()
-
 
