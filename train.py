@@ -6,11 +6,15 @@ Main training script
 TODO:
 * refactor for readability (migrate to utils etc)
 * better checkpoint/history saving strategy?
-* make a log file with setting (model, dataset, bs, lr, ...) --> exp name mappings
+* make a log file with setting (model, dataset, bs, lr, ...) --> exp name mappings - done
 
 """
 
+import sys
+sys.path.append('/home/scratch/kkorovin')
+
 import os
+import argparse
 
 import torch
 import torch.nn as nn
@@ -26,23 +30,34 @@ from datasets import get_data_loader
 from models import get_model
 from utils import *
 
-
 # checkpoint can be loaded into an initialized model with .load(name)
 
-def run_training(model_name="vgg16", dataset_name="cifar10",
+def parse_train_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', type=str, help='model to use')
+    parser.add_argument('--dataset', type=str, help='dataset to use')
+    parser.add_argument('--batch_size', default=64, type=int, help='batch size')
+    parser.add_argument('--lr', default=1e-2, type=float, help='learning rate')
+    parser.add_argument('--n_epochs', default=15, type=int, help='number of training epochs')
+    parser.add_argument('--verbose', default=False, type=bool, help='whether to display training statistics')
+    args = parser.parse_args()
+    return args
+
+
+def run_training(model_name="vgg16",
+                 dataset_name="cifar10",
                  batch_size=32, lr=1e-3, n_epochs=10,
-                 val_period=1, save_hist_period=1):
+                 save_hist_period=1, verbose=False):
     """
     For now only one model (vgg-16).
 
     Params:
-    :model_name:
-    :dataset_name:
-    :batch_size:
-    :lr:
+    :model_name: "vgg{11,13,16,19}" or "lenet" (or "[...]_random")
+    :dataset_name: "cifar10" or "mnist"
+    :batch_size: int
+    :lr: float
     :n_epochs: number of training epochs
-    :val_period:
-    :save_hist_period:
+    :save_hist_period: frequency with which points are saved
 
     """
     # name of current checkpoint/run
@@ -61,24 +76,15 @@ def run_training(model_name="vgg16", dataset_name="cifar10",
     val_loader   = get_data_loader(dataset_name, "val", batch_size)
 
     history = init_history()
-    # update_history({"train_loss": 1e1,
-    #                 "weights": deepcopy(model.state_dict())},
-    #                 history, check_name)
 
-    # model.load_state_dict(model.state_dict())
-    # exit(0)
-
-    # model.load(check_name)
-
-    count = 0
     for epoch in range(n_epochs):
         model.train()
-        print("Starting training epoch {}".format(epoch+1))
-        
+        if verbose: print("Starting training epoch {}".format(epoch+1))
+
         running_loss = 0.
         num_batches = len(train_loader)
 
-        for (xs, ys) in tqdm(train_loader):
+        for (xs, ys) in train_loader:
             xs, ys = xs.to(DEVICE), ys.to(DEVICE)
             optimizer.zero_grad()
             logits = model(xs)
@@ -97,27 +103,31 @@ def run_training(model_name="vgg16", dataset_name="cifar10",
         scheduler.step(avg_loss)
         model.save(check_name)
 
-        print("Epoch {} loss: {:.3f}".format(epoch+1, avg_loss))
+        if verbose: print("Epoch {} loss: {:.3f}".format(epoch+1, avg_loss))
 
         if epoch % save_hist_period == 0:
+            model.eval()
+            accs = []
+            for (xs, ys) in val_loader:
+                xs, ys = xs.to(DEVICE), ys.to(DEVICE)
+                logits = model(xs)
+                y_pred = logits.argmax(dim=1)
+                batch_acc = (y_pred == ys).float().mean().item()
+                accs.append(batch_acc)
+
+            if verbose: print("Validation accuracy: {:.3f}".format(np.mean(accs)))
             update_history({"train_loss": avg_loss,
+                            "val_acc": np.mean(accs),
                             "weights": deepcopy(model.state_dict())},
                              history, check_name)
 
-        if epoch % val_period == 0:
-            model.eval()
-            for (xs, ys) in tqdm(val_loader):
-                xs, ys = xs.to(DEVICE), ys.to(DEVICE)
-                logits = model(xs)
-                # TODO: predictions
-
+    print("Last avg loss {}, eval acc {}".format(avg_loss, np.mean(accs)))
     # after the end of all epochs, last checkpoint has been saved
 
+
 if __name__=="__main__":
-    """ Usage examples """
-    run_training("lenet", "mnist", n_epochs=1)
-    # run_training("vgg16", "cifar10", n_epochs=1)
-
-
-
+    args = parse_train_args()
+    run_training(args.model, args.dataset,
+                 batch_size=args.batch_size, lr=args.lr,
+                 n_epochs=args.n_epochs, verbose=args.verbose)
 

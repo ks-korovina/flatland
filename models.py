@@ -36,13 +36,13 @@ class BaseModule(nn.Module):
 
     def save(self, check_name):
         checkpoint = self.state_dict()
+        os.makedirs("./checkpoints/", exist_ok=True)
         torch.save(checkpoint, "./checkpoints/{}.pth".format(check_name))
 
     def load(self, check_name):
         """
         checkpoint - ./checkpoints/some_name.pt
         """
-        os.makedirs("./checkpoints/", exist_ok=True)
         checkpoint = torch.load("./checkpoints/{}.pth".format(check_name), map_location='cpu')
         self.to(DEVICE)
         self.load_state_dict(checkpoint)

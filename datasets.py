@@ -8,6 +8,7 @@ Author: kkorovin@cs.cmu.edu
 TODO
 """
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torchvision
@@ -25,8 +26,23 @@ from constants import DEVICE
 #   def __getitem__(self):
 #       pass
 
+def replace_labels(dataset, num_classes):
+    """ inplace modifies the dataset """
+    for i in range(len(dataset.train_labels)):
+        if np.random.random_sample() < 0.5:
+            dataset.train_labels[i] = np.random.choice(num_classes)
+
 
 def get_data_loader(dataset_name, mode, batch_size=100):
+    dataset_params = dataset_name.split("_")
+    if len(dataset_params) == 1:
+        dataset_name, random_labels = dataset_params[0], False
+    elif len(dataset_params) == 2:
+        dataset_name, random_labels = dataset_params[0], True
+    else:
+        raise ValueError("Wrong dataset name format {}, \
+                         should be datasetname or datasetname_random".format(dataset_name))
+
     if dataset_name == "mnist":
         if mode == "train":
             transform_train = transforms.Compose([
@@ -34,9 +50,10 @@ def get_data_loader(dataset_name, mode, batch_size=100):
               transforms.Normalize((0.1307,), (0.3081,))
             ])
             train_data = MNIST(root='./data', train=True, download=True, transform=transform_train)
+            if random_labels: replace_labels(train_data, 10)
             train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
             return train_loader
-        
+
         elif mode in ("val", "dev"):
             transform_test = transforms.Compose([
               transforms.ToTensor(),
@@ -59,6 +76,7 @@ def get_data_loader(dataset_name, mode, batch_size=100):
             ])
 
             train_data = CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+            if random_labels: replace_labels(train_data, 10)
             train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
             return train_loader
 
