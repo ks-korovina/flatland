@@ -24,10 +24,17 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.tri as mtri
-
+import matplotlib
+matplotlib.rcParams.update({'font.serif': 'Times New Roman',
+                            'font.size': 10.0,
+                            'axes.labelsize': 'Medium',
+                            'axes.labelweight': 'normal',
+                            'axes.linewidth': 0.8,
+                            'figure.figsize':[20,15]
+                            })
 
 def visualize_checkpoint_simplex(exp_names, model_name, dataset_name,
-                                 cutoff=3.5, mode="grid"):
+                                 cutoff=3.5, mode="grid", break_after=-1):
     """
     Given three points, plot surface over their convex combinations.
     """
@@ -75,25 +82,42 @@ def visualize_checkpoint_simplex(exp_names, model_name, dataset_name,
                 weights = [X[i, j], Y[i, j], Z[i, j]]
                 network_params = average_with_weights(ps, weights)
                 model.load_params(network_params)
-                loss = compute_approx_train_loss(model, train_loader)
+                loss = compute_approx_train_loss(model, train_loader,
+                                                 break_after)
                 Z_[i].append(loss)
 
         losses = np.array(Z_)
+
+        # backup everything everything
+        np.save("./data/X_" + "_".join(s for s in exp_names), X)
+        np.save("./data/Y_" + "_".join(s for s in exp_names), Y)
+        np.save("./data/Z_" + "_".join(s for s in exp_names), Z_)
+
         losses[losses > cutoff] = cutoff
 
         fig = plt.figure()
+        cmap = matplotlib.cm.coolwarm
+        cmap.set_bad('white', 1.)
+        cmap.set_over('white', alpha=.1)
         ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(X, Y, losses, vmax=cutoff)
+        ax.plot_surface(X, Y, losses, vmax=cutoff, rstride=1, cstride=1,
+                        cmap=cmap, edgecolor='none', antialiased=True)
+        ax.view_init(50, 225)
+
         plt.savefig("surf_" + "_".join(s for s in exp_names))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_names', type=str, nargs=3, help='experiment names')
+    parser.add_argument('--model', default="lenet", type=str, help='model to use')
+    parser.add_argument('--dataset', default="mnist", type=str, help='dataset to use')
     args = parser.parse_args()
 
-    visualize_checkpoint_simplex(args.exp_names, "lenet", "mnist")
+    # visualize_checkpoint_simplex(args.exp_names, args.model, args.dataset,
+    #                              break_after=10)
     for exp_name in args.exp_names:
-        compute_c_epsilon_flatness(exp_name, "lenet", "mnist", n_trials=10)
+        compute_c_epsilon_flatness(exp_name, args.model, args.dataset,
+                                   n_trials=10, break_after=10)
 
 

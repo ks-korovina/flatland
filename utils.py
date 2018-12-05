@@ -79,7 +79,12 @@ def average_with_weights(thetas, weights):
 def add_weights(dw1, dw2, step=1.):
     res = {}
     for layer in dw1.keys():
-        res[layer] = dw1[layer] + float(step) * dw2[layer]
+        if isinstance(dw1[layer], torch.FloatTensor) or \
+           isinstance(dw1[layer], torch.cuda.FloatTensor):
+        # if dw1[layer].requires_grad:
+            res[layer] = dw1[layer] + float(step) * dw2[layer]
+        else:
+            res[layer] = dw1[layer]
     return res
 
 
@@ -95,9 +100,10 @@ def random_like(weight_dict):
 
 
 def gaussian_like(weight_dict, cov):
-    rand_weights = {}
+    """ Create weights as indep samples from N(w_j, 1/gamma) """
+    rand_weights = weight_dict
     for layer in weight_dict.keys():
-        rand_weights[layer] = torch.randn(weight_dict[layer].size()) * cov
+        rand_weights[layer] = weight_dict[layer] + torch.randn(weight_dict[layer].size()).to(DEVICE) * cov
     return rand_weights
 
 
@@ -171,13 +177,14 @@ def compute_approx_train_loss(model, data_loader, break_after=-1):
     """
     running_loss = 0.
     n_batches = 0
-    for (xs, ys) in data_loader:
-        xs, ys = xs.to(DEVICE), ys.to(DEVICE)
-        running_loss += compute_loss(model, xs, ys)
-        n_batches += 1
+    with torch.no_grad():
+        for (xs, ys) in data_loader:
+            xs, ys = xs.to(DEVICE), ys.to(DEVICE)
+            running_loss += compute_loss(model, xs, ys)
+            n_batches += 1
 
-        if break_after > -1 and n_batches >= break_after:
-            break
+            if break_after > -1 and n_batches >= break_after:
+                break
 
     loss = running_loss / n_batches
     return loss

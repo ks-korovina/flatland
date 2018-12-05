@@ -29,17 +29,18 @@ def compute_c_epsilon_sharpness(exp_name, eps=1e-3):
 
 
 def compute_c_epsilon_flatness(exp_name, model_name, dataset_name,
-							   eps=1e-2, n_trials=100):
+                               eps=0.05, n_trials=100, break_after=-1):
     """
     Input: experiment name and parameter epsilon
     Returns: float flatness
     """
     model = get_model(model_name).to(DEVICE)
+    # bs here is chosen by processing speed:
     train_loader = get_data_loader(dataset_name, "train", 100)
 
     network_params = load_history(exp_name)['trajectory'][-1]
     model.load_params(network_params)
-    loss_init = compute_approx_train_loss(model, train_loader)
+    loss_init = compute_approx_train_loss(model, train_loader, break_after)
 
     steps_to_border = []
     for _ in range(n_trials):
@@ -47,38 +48,42 @@ def compute_c_epsilon_flatness(exp_name, model_name, dataset_name,
         delta_params = random_like(network_params)
         loss_perturbed = loss_init
         step = 0
-        while loss_perturbed - loss_init < eps * loss_init:
-        	step += 1
-        	perturbed_params = add_weights(network_params, delta_params, step)
-        	model.load_params(perturbed_params)
-        	loss_perturbed = compute_approx_train_loss(model, train_loader)  # <---- change break_after parameter here
+        while loss_perturbed - loss_init < eps:
+            step += 1
+            perturbed_params = add_weights(network_params, delta_params, step)
+            model.load_params(perturbed_params)
+            loss_perturbed = compute_approx_train_loss(model, train_loader, break_after)
 
         # this trial, we went on average 'steps' unit vectors away from starting point
         steps_to_border.append(step)
 
     # Display results:
-    print("Approximate radius of flatness: {:.3f}".format(np.mean(steps_to_border)))
+    print("Approximate radius of flatness: {:.3f} +/- {:.3f}".format(np.mean(steps_to_border), np.std(steps_to_border)))
     return np.mean(steps_to_border)
 
 
 def compute_local_entropy(exp_name, model_name, dataset_name,
-                               gamma, n_trials=100):
+                          gamma, n_trials=100):
     model = get_model(model_name).to(DEVICE)
+    network_params = load_history(exp_name)['trajectory'][-1]
     train_loader = get_data_loader(dataset_name, "train", 100)
-    return monte_carlo(model, train_loader, gamma, n_trials)
+    return monte_carlo(model, train_loader, network_params, gamma, n_trials)
 
 
 def monte_carlo(model, data, network_params, gamma, n_trials):
     d = np.sum([v.numel() for (k,v) in network_params.items()])
+    print("Number of parameters in the network:", d)
 
     avg = 0.
     for i in range(n_trials):
-        sample = gaussian_like(network_params, 1/gamma)
+        perturbed_params = gaussian_like(network_params, 1/gamma)
+        model.load_params(perturbed_params)
         loss = compute_approx_train_loss(model, data)
-        avg += np.exp(-loss) / num_trials
+        avg += np.exp(-loss) / n_trials
 
-    Z = d/2 * np.log(2 * math.pi) + 0.5 * np.log(d/gamma)
-    loss = Z * np.log(avg)
+    # Z = d/2 * np.log(2 * math.pi) + 0.5 * np.log(d/gamma)
+    # loss = Z + 
+    loss = np.log(avg)
 
     return loss
 
