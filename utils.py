@@ -6,6 +6,7 @@ Helper functions for training and running experiments.
 TODO:
 * add validation loss tracking
 * add plotting utils
+* simplex sampling credited to the SimplexGrid library
 
 """
 
@@ -61,6 +62,11 @@ def load_history(check_name):
 
 ############### Operations on net parameters (weights) #################
 
+def is_float(tens):
+    return isinstance(tens, torch.FloatTensor) or \
+           isinstance(tens, torch.cuda.FloatTensor)
+
+
 def average_with_weights(thetas, weights):
     # check that number of params match
     n_models = len(thetas)
@@ -79,9 +85,7 @@ def average_with_weights(thetas, weights):
 def add_weights(dw1, dw2, step=1.):
     res = {}
     for layer in dw1.keys():
-        if isinstance(dw1[layer], torch.FloatTensor) or \
-           isinstance(dw1[layer], torch.cuda.FloatTensor):
-        # if dw1[layer].requires_grad:
+        if is_float(dw1[layer]):
             res[layer] = dw1[layer] + float(step) * dw2[layer]
         else:
             res[layer] = dw1[layer]
@@ -103,7 +107,8 @@ def gaussian_like(weight_dict, cov):
     """ Create weights as indep samples from N(w_j, 1/gamma) """
     rand_weights = weight_dict
     for layer in weight_dict.keys():
-        rand_weights[layer] = weight_dict[layer] + torch.randn(weight_dict[layer].size()).to(DEVICE) * cov
+        if is_float(weight_dict[layer]):
+            rand_weights[layer] = weight_dict[layer] + torch.randn(weight_dict[layer].size()).to(DEVICE) * cov
     return rand_weights
 
 

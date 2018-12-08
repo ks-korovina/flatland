@@ -7,7 +7,7 @@ Starting from a few checkpoints, compute flatness and and generalization.
 TODO:
 * compute flatness/sharpness measures
 * think of how to refactor flatness measure computations
-* use meshes instead of triangulations (also needs a simplex grid) - IMPORTANT
+* use meshes instead of triangulations (also needs a simplex grid) - done
 
 """
 import sys
@@ -102,9 +102,39 @@ def visualize_checkpoint_simplex(exp_names, model_name, dataset_name,
         ax = fig.add_subplot(111, projection='3d')
         ax.plot_surface(X, Y, losses, vmax=cutoff, rstride=1, cstride=1,
                         cmap=cmap, edgecolor='none', antialiased=True)
-        ax.view_init(50, 225)
+        ax.view_init(50, 200)  #225
 
         plt.savefig("surf_" + "_".join(s for s in exp_names))
+        plt.clf()
+
+
+def visualize_interpolated_trajectory(exp_names, model_name, dataset_name, break_after=-1):
+    """ repeat for three runs """
+    for exp_name in exp_names:
+        trajectory = load_history(exp_name)['trajectory']
+
+        model = get_model(model_name).to(DEVICE)
+        train_loader = get_data_loader(dataset_name, "train", 100)
+
+        res = []
+        epochs = []
+        for i in range(len(trajectory)-1):
+            ps = [trajectory[i], trajectory[i+1]]
+            for alph in [0., 0.2, 0.4, 0.6, 0.8]:
+                weights = [alph, 1-alph]
+                network_params = average_with_weights(ps, weights)
+                model.load_params(network_params)
+                loss = compute_approx_train_loss(model, train_loader,
+                                                 break_after)
+                epochs.append(i+1+alph)
+                res.append(loss)
+
+        plt.plot(epochs, res)
+
+    plt.xlabel("Interpolated epoch")
+    plt.ylabel("Approx loss")
+    plt.savefig("loss_interpolation_" + exp_name)
+    plt.clf()
 
 
 if __name__ == "__main__":
@@ -114,10 +144,15 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default="mnist", type=str, help='dataset to use')
     args = parser.parse_args()
 
-    # visualize_checkpoint_simplex(args.exp_names, args.model, args.dataset,
-    #                              break_after=10)
+    visualize_checkpoint_simplex(args.exp_names, args.model, args.dataset,
+                                 break_after=20)
     for exp_name in args.exp_names:
         compute_c_epsilon_flatness(exp_name, args.model, args.dataset,
                                    n_trials=10, break_after=10)
+        break
+
+    # Average trajectories
+    visualize_interpolated_trajectory(args.exp_names, args.model, args.dataset,
+                                      break_after=10)
 
 

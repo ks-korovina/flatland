@@ -23,7 +23,7 @@ import pickle as pkl
 from tqdm import tqdm
 from copy import deepcopy
 from torch.optim import Adam, SGD
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 
 from constants import DEVICE
 from datasets import get_data_loader
@@ -66,8 +66,9 @@ def run_training(model_name="vgg16",
     # setup model, optimizer and logging
     model = get_model(model_name).to(DEVICE)
     optimizer = SGD(params=model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, patience=3,
-                                  threshold=0.1, min_lr=1e-5)
+    # scheduler = ReduceLROnPlateau(optimizer, patience=3,
+    #                               threshold=0.1, min_lr=1e-5)
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
     cross_ent = nn.CrossEntropyLoss()
 
@@ -76,6 +77,11 @@ def run_training(model_name="vgg16",
     val_loader   = get_data_loader(dataset_name, "val", batch_size)
 
     history = init_history()
+
+    update_history({"train_loss": float("inf"),
+                    "val_acc": 0.,
+                    "weights": deepcopy(model.state_dict())},
+                     history, check_name)
 
     for epoch in range(n_epochs):
         model.train()

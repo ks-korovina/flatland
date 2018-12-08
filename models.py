@@ -10,6 +10,8 @@ TODOs;
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 import os
 import math
 
@@ -64,6 +66,20 @@ class BaseModule(nn.Module):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 
+    def _initialize_weights_large(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(6. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.1)
+                m.bias.data.zero_()
+
 
 class LeNet(BaseModule):
     def __init__(self, in_channels=1, img_rows=28, num_classes=10):
@@ -88,7 +104,7 @@ class LeNet(BaseModule):
                 nn.Linear(500, num_classes),
                 nn.LogSoftmax(dim=-1),
                 )
-        self._initialize_weights()
+        self._initialize_weights_large()
 
     def forward(self, x):
         x = self.features(x)
@@ -131,4 +147,21 @@ class VGG(BaseModule):
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
 
+
+class MnistMLP(BaseModule):
+    """ MLP for MNIST """
+    def __init__(self):
+        super(MnistMLP, self).__init__()
+        self.fc1 = nn.Linear(28 * 28, 800)
+        self.fc2 = nn.Linear(800, 320)
+        self.fc3 = nn.Linear(320, 50)
+        self.fc4 = nn.Linear(50, 10)
+
+    def forward(self, x):
+        x = x.view(-1, 28 * 28)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        return F.log_softmax(x, dim=1)
 
